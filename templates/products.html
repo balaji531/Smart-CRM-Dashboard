@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+
+{% block title %}Product List{% endblock %}
+
+{% block content %}
+  <main class="max-w-7xl mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-6 text-blue-900">Product List</h1>
+
+    <!-- Search + Sort -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <input
+        id="searchInput"
+        type="text"
+        placeholder="Search products..."
+        class="border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-full md:w-1/2"
+      />
+      <select
+        id="sortSelect"
+        class="border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-full md:w-1/4"
+      >
+        <option value="newest">Newest First</option>
+        <option value="az">A - Z</option>
+        <option value="za">Z - A</option>
+      </select>
+    </div>
+
+    <!-- Add Product Button -->
+    <button id="toggleFormBtn" class="bg-blue-600 text-white px-5 py-3 rounded mb-6 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
+      Add Product
+    </button>
+
+    <!-- Add Product Form -->
+    <form id="addProductForm" class="hidden mb-6 bg-white p-6 rounded-lg shadow-md" method="post" novalidate>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <input type="text" name="name" placeholder="Product Name" required class="border border-gray-300 p-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        <input type="text" name="category" placeholder="Category" required class="border border-gray-300 p-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        <input type="number" name="price" placeholder="Price" step="0.01" required class="border border-gray-300 p-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        <input type="number" name="sold" placeholder="Sold" required class="border border-gray-300 p-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      </div>
+      <button type="submit" class="bg-green-600 text-white px-6 py-3 mt-6 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1">
+        Save Product
+      </button>
+    </form>
+
+    <!-- Table -->
+    <div class="overflow-x-auto shadow-md rounded-lg bg-white">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-blue-600">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider rounded-tl-lg">Name</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Category</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Price</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Sold</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider rounded-tr-lg">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    let allProducts = [];
+
+    // Toggle Form
+    document.getElementById("toggleFormBtn").addEventListener("click", () => {
+      document.getElementById("addProductForm").classList.toggle("hidden");
+    });
+
+    // Handle Form Submission
+    document.getElementById("addProductForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const product = Object.fromEntries(formData.entries());
+
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(product),
+      });
+
+      if (res.ok) {
+        e.target.reset();
+        document.getElementById("addProductForm").classList.add("hidden");
+        loadProducts();
+      } else {
+        alert("Error adding product");
+      }
+    });
+
+    // Load Products from API
+    function loadProducts() {
+      fetch("/api/products")
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to load sales data.");
+          return res.json();
+        })
+        .then(data => {
+          allProducts = data;
+          renderProducts();
+          enableSearchAndSort();
+        })
+        .catch(() => {
+          const tbody = document.querySelector("tbody");
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="5" class="text-center text-red-600 font-semibold text-lg py-8">
+                Failed to load sales data.
+              </td>
+            </tr>
+          `;
+        });
+    }
+
+    // Render products with search & sort
+    function renderProducts() {
+      const searchValue = document.getElementById("searchInput").value.toLowerCase();
+      const sortValue = document.getElementById("sortSelect").value;
+
+      let filtered = allProducts.filter(product =>
+        product.name.toLowerCase().includes(searchValue) ||
+        product.category.toLowerCase().includes(searchValue)
+      );
+
+      if (sortValue === "az") {
+        filtered.sort((a, b) => a.name.localeCompare(b.name));
+      } else if (sortValue === "za") {
+        filtered.sort((a, b) => b.name.localeCompare(a.name));
+      } else if (sortValue === "newest") {
+        filtered.sort((a, b) => b.id - a.id); // assuming higher ID is newer
+      }
+
+      const tbody = document.querySelector("tbody");
+      tbody.innerHTML = "";
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5" class="text-center text-gray-500 py-8">
+              No products found.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filtered.forEach(product => {
+        const row = document.createElement("tr");
+        row.classList.add("hover:bg-gray-50");
+        row.innerHTML = `
+          <td class="px-4 py-3 text-gray-900">${product.name}</td>
+          <td class="px-4 py-3 text-gray-900">${product.category}</td>
+          <td class="px-4 py-3 text-gray-900">${product.price}</td>
+          <td class="px-4 py-3 text-gray-900">${product.sold}</td>
+          <td class="px-4 py-3">
+            <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 font-semibold">
+              <i class="fas fa-trash-alt mr-1"></i>Delete
+            </button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // Enable search and sort listeners
+    function enableSearchAndSort() {
+      document.getElementById("searchInput").addEventListener("input", renderProducts);
+      document.getElementById("sortSelect").addEventListener("change", renderProducts);
+    }
+
+    // Delete Product
+    function deleteProduct(id) {
+      if (confirm("Are you sure you want to delete this product?")) {
+        fetch(`/api/products/${id}`, { method: "DELETE" })
+          .then(res => {
+            if (res.ok) loadProducts();
+            else alert("Failed to delete product.");
+          });
+      }
+    }
+
+    // Initial load
+    loadProducts();
+  </script>
+{% endblock %}

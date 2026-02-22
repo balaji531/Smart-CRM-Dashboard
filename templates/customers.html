@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+
+{% block title %}Customer List{% endblock %}
+
+{% block content %}
+<main class="max-w-7xl mx-auto p-4">
+  <h1 class="text-2xl font-bold mb-6 text-blue-900">Customer List</h1>
+
+  <!-- Search & Sort Controls -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <input
+      id="searchInput"
+      type="text"
+      placeholder="Search customers..."
+      class="border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-full md:w-1/2"
+    />
+
+    <select
+      id="sortSelect"
+      class="border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-full md:w-1/4"
+    >
+      <option value="newest">Newest First</option>
+      <option value="az">Name A - Z</option>
+      <option value="za">Name Z - A</option>
+    </select>
+  </div>
+
+  <button id="toggle-form" class="mb-4 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition inline-flex items-center">
+    <i class="fas fa-plus mr-2"></i>Add Customer
+  </button>
+
+  <form id="add-customer-form" class="mb-6 hidden space-y-4 max-w-md bg-white p-4 rounded shadow" novalidate>
+    <div>
+      <label for="name" class="block text-gray-700 font-medium mb-1">Name</label>
+      <input type="text" id="name" name="name" class="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required />
+    </div>
+    <div>
+      <label for="email" class="block text-gray-700 font-medium mb-1">Email</label>
+      <input type="email" id="email" name="email" class="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required />
+    </div>
+    <div>
+      <label for="phone" class="block text-gray-700 font-medium mb-1">Phone</label>
+      <input type="text" id="phone" name="phone" class="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required />
+    </div>
+    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 transition inline-flex items-center">
+      <i class="fas fa-check mr-2"></i>Submit
+    </button>
+  </form>
+
+  <div class="overflow-x-auto shadow-md rounded-lg bg-white">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-blue-600">
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Name</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Email</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Phone</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Action</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200 text-gray-800"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+  let allCustomers = [];
+
+  document.getElementById('toggle-form').addEventListener('click', () => {
+    document.getElementById('add-customer-form').classList.toggle('hidden');
+  });
+
+  function loadCustomers() {
+    fetch("/api/customers")
+      .then(res => res.json())
+      .then(data => {
+        allCustomers = data;
+        renderCustomers();
+      });
+  }
+
+  function renderCustomers() {
+    const searchTerm = document.getElementById("searchInput").value.toLowerCase();
+    const sortValue = document.getElementById("sortSelect").value;
+
+    let filtered = allCustomers.filter(c =>
+      c.name.toLowerCase().includes(searchTerm) ||
+      c.email.toLowerCase().includes(searchTerm) ||
+      c.phone.toLowerCase().includes(searchTerm)
+    );
+
+    if (sortValue === "az") {
+      filtered.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortValue === "za") {
+      filtered.sort((a, b) => b.name.localeCompare(a.name));
+    } else if (sortValue === "newest") {
+      filtered.sort((a, b) => b.id - a.id);
+    }
+
+    const tbody = document.querySelector("tbody");
+    tbody.innerHTML = "";
+    filtered.forEach(customer => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td class="px-4 py-2 whitespace-nowrap">${escapeHtml(customer.name)}</td>
+        <td class="px-4 py-2 whitespace-nowrap">${escapeHtml(customer.email)}</td>
+        <td class="px-4 py-2 whitespace-nowrap">${escapeHtml(customer.phone)}</td>
+        <td class="px-4 py-2 whitespace-nowrap">
+          <button onclick="deleteCustomer(${customer.id})" class="text-red-600 hover:underline focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 transition" aria-label="Delete customer ${escapeHtml(customer.name)}">
+            <i class="fas fa-trash-alt"></i> Delete
+          </button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+
+  function escapeHtml(text) {
+    if (!text) return '';
+    return text.replace(/[&<>"']/g, m => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[m]);
+  }
+
+  document.getElementById('add-customer-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const customer = {
+      name: document.getElementById('name').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      phone: document.getElementById('phone').value.trim()
+    };
+
+    fetch("/api/customers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(customer)
+    })
+    .then(res => {
+      if (res.ok) {
+        this.reset();
+        document.getElementById('add-customer-form').classList.add('hidden');
+        loadCustomers();
+      } else {
+        alert("Failed to add customer.");
+      }
+    });
+  });
+
+  function deleteCustomer(id) {
+    if (!confirm("Are you sure you want to delete this customer?")) return;
+
+    fetch(`/api/customers/${id}`, {
+      method: "DELETE"
+    })
+    .then(res => {
+      if (res.ok) {
+        loadCustomers();
+      } else {
+        alert("Failed to delete customer.");
+      }
+    });
+  }
+
+  // Enable search & sort
+  document.getElementById("searchInput").addEventListener("input", renderCustomers);
+  document.getElementById("sortSelect").addEventListener("change", renderCustomers);
+
+  loadCustomers();
+</script>
+{% endblock %}

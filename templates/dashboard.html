@@ -1,0 +1,363 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard Overview{% endblock %}
+
+{% block content %}
+<body class="bg-white text-black">
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+    <h1 class="text-2xl font-bold text-blue-900">Dashboard Overview</h1>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
+      <div tabindex="0" role="button" aria-pressed="false" aria-label="Total Customers" class="bg-white p-6 shadow-lg rounded-xl flex flex-col justify-center items-center cursor-pointer hover:shadow-2xl focus:shadow-2xl transition-shadow" id="totalCustomers">
+        <i class="fas fa-users text-4xl text-blue-600 mb-2"></i>
+        <span class="text-lg font-semibold text-blue-900">Loading...</span>
+      </div>
+      <div tabindex="0" role="button" aria-pressed="false" aria-label="Total Products" class="bg-white p-6 shadow-lg rounded-xl flex flex-col justify-center items-center cursor-pointer hover:shadow-2xl focus:shadow-2xl transition-shadow" id="totalProducts">
+        <i class="fas fa-box-open text-4xl text-blue-600 mb-2"></i>
+        <span class="text-lg font-semibold text-black">Loading...</span>
+      </div>
+      <div tabindex="0" role="button" aria-pressed="false" aria-label="Year to Date Revenue" class="bg-white p-6 shadow-lg rounded-xl flex flex-col justify-center items-center cursor-pointer hover:shadow-2xl focus:shadow-2xl transition-shadow" id="revenue">
+        <i class="fas fa-coins text-4xl text-blue-600 mb-2"></i>
+        <span class="text-lg font-semibold text-black">Loading...</span>
+      </div>
+      <div tabindex="0" role="button" aria-pressed="false" aria-label="Top Product" class="bg-white p-6 shadow-lg rounded-xl flex flex-col justify-center items-center cursor-pointer hover:shadow-2xl focus:shadow-2xl transition-shadow" id="topProduct">
+        <i class="fas fa-star text-4xl text-blue-600 mb-2"></i>
+        <span class="text-lg font-semibold text-black text-center">Loading...</span>
+      </div>
+    </div>
+
+    <section class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div class="bg-white p-6 shadow-lg rounded-xl flex flex-col justify-center min-h-[400px] max-h-[480px]">
+        <h2 class="text-xl font-semibold mb-4 text-black">Top Selling Products (Velocity)</h2>
+        <canvas id="productVelocityChart" class="w-full max-w-full h-80 rounded-xl flex-grow"></canvas>
+      </div>
+
+      <div class="bg-white p-6 shadow-lg rounded-xl flex flex-col justify-center min-h-[400px] max-h-[480px]">
+        <h2 class="text-xl font-semibold mb-4 text-black">Product Categories Distribution</h2>
+        <canvas id="productChart" class="w-full max-w-full h-80 rounded-xl flex-grow"></canvas>
+      </div>
+    </section>
+
+    <section class="max-w-7xl mx-auto">
+      <div class="bg-white p-6 rounded shadow max-w-7xl mx-auto">
+        <h2 class="text-xl font-bold mb-4">Sales Trend</h2>
+        <select id="metricSelector" class="mb-4 border border-gray-300 px-2 py-1 rounded w-full max-w-xs">
+          <option value="total_revenue">Revenue</option>
+          <option value="total_quantity">Quantity Sold</option>
+        </select>
+
+        <div class="overflow-x-auto whitespace-nowrap">
+          <canvas id="salesTrendChart" style="min-width: 100%; height: 400px;"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <div class="bg-white shadow rounded p-6 max-w-7xl mx-auto space-y-6">
+      <h2 class="text-xl font-semibold text-black flex items-center gap-2">👥 Customer Demographics</h2>
+      <p id="total-customers" class="text-black">Total Customers: ...</p>
+
+      <div>
+        <h3 class="font-medium text-black mt-4">🏙️ Top Cities</h3>
+        <ul id="top-cities" class="list-disc list-inside text-black"></ul>
+      </div>
+
+      <div>
+        <h3 class="font-medium text-black mt-4">📧 Email Domains</h3>
+        <ul id="email-domains" class="list-disc list-inside text-black"></ul>
+      </div>
+    </div>
+
+    <div class="bg-blue-600 border border-blue-700 text-white px-6 py-4 rounded-lg flex items-center space-x-4 max-w-full w-full max-w-7xl mx-auto">
+      <i class="fas fa-users text-4xl flex-shrink-0 text-white"></i>
+      <p class="text-lg font-semibold text-left flex-grow" id="repeat-rate-text">Loading...</p>
+    </div>
+
+    <section class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div class="bg-white p-6 shadow rounded" id="TopCustomers">
+        <h3 class="text-lg font-semibold text-black mb-4 flex items-center">
+          <i class="fas fa-users text-blue-700 mr-2 text-xl"></i> Top Customers
+        </h3>
+        <ul id="top-customers" class="text-black space-y-1 text-sm">
+          <li>Loading...</li>
+        </ul>
+      </div>
+
+      <div class="bg-white p-6 shadow rounded" id="LowStockProducts">
+        <h3 class="text-lg font-semibold text-black mb-4 flex items-center">
+          <i class="fas fa-boxes text-blue-700 mr-2 text-xl"></i> Low Stock Products
+        </h3>
+        <ul id="low-stock" class="text-black space-y-1 text-sm">
+          <li>Loading...</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+<!-- JS Script -->
+<script>
+    fetch('/api/dashboard/stats')
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('totalCustomers').innerHTML = `
+          <i class="fas fa-users text-4xl text-blue-600 mb-2"></i>
+          <span class="text-lg font-semibold text-black-900">Total Customers: ${data.total_customers}</span>
+        `;
+        document.getElementById('totalProducts').innerHTML = `
+          <i class="fas fa-box-open text-4xl text-blue-600 mb-2"></i>
+          <span class="text-lg font-semibold text-black-900">Total Products: ${data.total_products}</span>
+        `;
+        document.getElementById('revenue').innerHTML = `
+          <i class="fas fa-coins text-4xl text-blue-600 mb-2"></i>
+          <span class="text-lg font-semibold text-black-900">YTD Revenue: ₹${data.ytd_revenue}</span>
+        `;
+        document.getElementById('topProduct').innerHTML = `
+          <i class="fas fa-star text-4xl text-blue-600 mb-2"></i>
+          <span class="text-lg font-semibold text-black-900 text-center">Top Product: ${data.top_product} (${data.top_product_sold} sold)</span>
+        `;
+      });
+fetch('/api/dashboard/sales-chart')
+    .then(res => res.json())
+    .then(data => {
+        // Month order mapping
+        const monthOrder = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+        // Sort months & totals based on monthOrder
+        const sortedData = data.months.map((m, i) => ({ month: m, total: data.totals[i] }))
+            .sort((a, b) => monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month));
+
+        const sortedMonths = sortedData.map(item => item.month);
+        const sortedTotals = sortedData.map(item => item.total);
+
+        // Set dynamic chart width (80px per month)
+        const chartWidth = sortedMonths.length * 80;
+        document.getElementById('salesChart').style.width = chartWidth + 'px';
+
+        new Chart(document.getElementById('salesChart'), {
+            type: 'line',
+            data: {
+                labels: sortedMonths,
+                datasets: [{
+                    label: 'Sales',
+                    data: sortedTotals,
+                    borderColor: '#4F46E5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                }]
+            },
+            options: {
+                responsive: false, // disable so width stays fixed for scroll
+                plugins: {
+                    legend: { display: true, position: 'top' },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        title: { display: true, text: 'Month' },
+                        ticks: { autoSkip: false }
+                    },
+                    y: {
+                        display: true,
+                        title: { display: true, text: 'Sales' },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    });
+
+  fetch('/api/dashboard/product-chart')
+    .then(res => res.json())
+    .then(data => {
+      new Chart(document.getElementById('productChart'), {
+        type: 'doughnut',
+        data: {
+          labels: data.categories,
+          datasets: [{
+            data: data.counts,
+            backgroundColor: [
+              '#4F46E5', '#10B981', '#F59E0B', '#EF4444',
+              '#8B5CF6', '#3B82F6', '#EC4899', '#22D3EE',
+              '#F97316', '#A78BFA'
+            ],
+            hoverOffset: 30
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'right', labels: { boxWidth: 20, padding: 15 } },
+            tooltip: { enabled: true }
+          }
+        }
+      });
+    });
+    fetch('/api/dashboard/top-customers')
+  .then(res => res.json())
+  .then(data => {
+    const ul = document.getElementById('top-customers');
+    ul.innerHTML = data.map(customer => `
+      <li>
+        <span class="font-medium">${customer.customer_name}</span> —
+        $${parseFloat(customer.total_spent).toFixed(2)} (${customer.total_orders} orders)
+      </li>
+    `).join('');
+  })
+  .catch(() => {
+    document.getElementById('top-customers').innerHTML = '<li>Error loading data</li>';
+  });
+  fetch('/api/dashboard/low-stock')
+  .then(res => res.json())
+  .then(data => {
+    const ul = document.getElementById('low-stock');
+    if (data.length === 0) {
+      ul.innerHTML = '<li>All products sufficiently stocked.</li>';
+    } else {
+      ul.innerHTML = data.map(p => `
+        <li>
+          <span class="font-medium">${p.name}</span> (${p.category}) —
+          Stock: ${p.stock}
+        </li>
+      `).join('');
+    }
+  })
+  .catch(() => {
+    document.getElementById('low-stock').innerHTML = '<li>Error loading data</li>';
+  });
+
+// Customer demographics
+
+fetch('/customer-demographics')
+  .then(response => response.json())
+  .then(data => {
+    document.getElementById('total-customers').innerText = `Total Customers: ${data.total_customers}`;
+
+    const cityList = document.getElementById('top-cities');
+    data.top_cities.forEach(city => {
+      const li = document.createElement('li');
+      li.textContent = `${city.address} (${city.count})`;
+      cityList.appendChild(li);
+    });
+
+    const domainList = document.getElementById('email-domains');
+    data.email_domains.forEach(domain => {
+      const li = document.createElement('li');
+      li.textContent = `${domain.domain} (${domain.count})`;
+      domainList.appendChild(li);
+    });
+  })
+  .catch(error => console.error('Error fetching demographics:', error));
+
+// REPEAT CUSTOMER Rate
+fetch('/api/dashboard/repeat-customer-rate')
+  .then(res => res.json())
+  .then(data => {
+    const text = `There are ${data.repeat_customer_rate}% Repeat Customers of the company`;
+    document.getElementById("repeat-rate-text").textContent = text;
+  })
+  .catch(err => {
+    document.getElementById("repeat-rate-text").textContent = "Error loading";
+    console.error("Repeat Rate Error:", err);
+  });
+  //PRODUCT VELOCITY
+fetch('/api/dashboard/product-velocity')
+  .then(res => res.json())
+  .then(data => {
+    const labels = data.map(p => p.product_name);
+    const values = data.map(p => p.total_sold);
+
+    new Chart(document.getElementById("productVelocityChart"), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Units Sold',
+          data: values,
+          backgroundColor: '#3b82f6',
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          title: {
+            display: false
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              stepSize: 1
+            }
+          }
+        }
+      }
+    });
+  })
+  .catch(err => console.error("Product Velocity Error:", err));
+//sales Trend
+fetch('/sales_trend')
+    .then(response => response.json())
+    .then(data => {
+        // Format each date as "DD MMM YYYY"
+        const labels = data.map(row => {
+            const date = new Date(row.sale_date);
+            return date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+        });
+
+        let selectedMetric = document.getElementById('metricSelector').value;
+
+        // Adjust chart width based on number of days (e.g., 50px per day)
+        const chartWidth = labels.length * 50;
+        document.getElementById('salesTrendChart').style.width = chartWidth + 'px';
+
+        const chartData = {
+            labels: labels,
+            datasets: [{
+                label: selectedMetric === 'total_revenue' ? 'Revenue' : 'Quantity Sold',
+                data: data.map(row => row[selectedMetric]),
+                borderColor: 'blue',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0
+            }]
+        };
+
+        const config = {
+            type: 'line',
+            data: chartData,
+            options: {
+                responsive: false, // required for scrollable width
+                plugins: { legend: { position: 'top' } },
+                scales: {
+                    x: {
+                        ticks: {
+                            autoSkip: false, // show all days
+                            maxRotation: 90, // tilt if needed
+                            minRotation: 45
+                        }
+                    },
+                    y: { beginAtZero: true }
+                }
+            }
+        };
+
+        const salesTrendChart = new Chart(
+            document.getElementById('salesTrendChart'),
+            config
+        );
+
+        // Change metric dynamically
+        document.getElementById('metricSelector').addEventListener('change', (e) => {
+            const metric = e.target.value;
+            salesTrendChart.data.datasets[0].label = metric === 'total_revenue' ? 'Revenue' : 'Quantity Sold';
+            salesTrendChart.data.datasets[0].data = data.map(row => row[metric]);
+            salesTrendChart.update();
+        });
+    });
+</script>
+{% endblock %}

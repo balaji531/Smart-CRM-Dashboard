@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+
+{% block title %}Sales Details{% endblock %}
+
+{% block content %}
+<main class="max-w-7xl mx-auto p-4 bg-gray-50">
+  <h1 class="text-2xl font-bold mb-6 text-blue-900">Sales Details</h1>
+
+  <!-- Search and Sort -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+    <input
+      id="searchInput"
+      type="text"
+      placeholder="Search sales..."
+      class="border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-full md:w-1/2"
+    />
+
+    <select
+      id="sortSelect"
+      class="border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 w-full md:w-1/4"
+    >
+      <option value="newest">Newest First</option>
+      <option value="oldest">Oldest First</option>
+      <option value="customer">Customer Name (A-Z)</option>
+      <option value="product">Product Name (A-Z)</option>
+    </select>
+  </div>
+
+  <div class="overflow-x-auto shadow-md rounded-lg bg-white">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-blue-600">
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Customer</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Product</th>
+          <th class="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">Qty</th>
+          <th class="px-4 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">Total</th>
+          <th class="px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">Date</th>
+        </tr>
+      </thead>
+      <tbody id="salesTable" class="divide-y divide-gray-100 text-gray-800"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+  let salesData = [];
+
+  function loadSales() {
+    fetch('/api/sales/sales-details')
+      .then(res => res.json())
+      .then(data => {
+        salesData = data;
+        renderSales();
+      })
+      .catch(() => {
+        document.getElementById('salesTable').innerHTML =
+          `<tr><td colspan="5" class="text-center py-6 text-red-600">Failed to load sales data.</td></tr>`;
+      });
+  }
+
+  function renderSales() {
+    const searchValue = document.getElementById("searchInput").value.toLowerCase();
+    const sortValue = document.getElementById("sortSelect").value;
+
+    let filtered = salesData.filter(sale =>
+      sale.customer_name.toLowerCase().includes(searchValue) ||
+      sale.product_name.toLowerCase().includes(searchValue)
+    );
+
+    if (sortValue === "newest") {
+      filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+    } else if (sortValue === "oldest") {
+      filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+    } else if (sortValue === "customer") {
+      filtered.sort((a, b) => a.customer_name.localeCompare(b.customer_name));
+    } else if (sortValue === "product") {
+      filtered.sort((a, b) => a.product_name.localeCompare(b.product_name));
+    }
+
+    const table = document.getElementById('salesTable');
+    table.innerHTML = filtered.map(row => `
+      <tr class="hover:bg-gray-50">
+        <td class="px-4 py-3 whitespace-nowrap">${row.customer_name}</td>
+        <td class="px-4 py-3 whitespace-nowrap">${row.product_name}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-right">${row.quantity}</td>
+        <td class="px-4 py-3 whitespace-nowrap text-right">$${parseFloat(row.total_price).toFixed(2)}</td>
+        <td class="px-4 py-3 whitespace-nowrap">${new Date(row.date).toLocaleDateString()}</td>
+      </tr>
+    `).join('');
+  }
+
+  document.getElementById("searchInput").addEventListener("input", renderSales);
+  document.getElementById("sortSelect").addEventListener("change", renderSales);
+
+  loadSales();
+</script>
+{% endblock %}
